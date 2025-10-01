@@ -1,2 +1,2 @@
-gunicon
+gunicorn
 flask
