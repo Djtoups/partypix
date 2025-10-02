@@ -4,10 +4,19 @@ import zipfile
 import os
 import json
 import hashlib
+import cloudinary
+import cloudinary.uploader
+
 
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory, render_template_string, redirect, url_for, session, send_file
 from werkzeug.utils import secure_filename
+
+cloudinary.config(
+    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    api_key = os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret = os.environ.get("CLOUDINARY_API_SECRET")
+)
 
 app = Flask(__name__)
 app.secret_key = "supersecret"
@@ -539,29 +548,32 @@ def compute_file_hash(file_obj):
 def upload():
     if "photo" not in request.files:
         return jsonify(ok=False, error="Missing file field 'photo'"), 400
+
     file = request.files["photo"]
     if file.filename == "":
         return jsonify(ok=False, error="Empty filename"), 400
     if not (file.mimetype or "").startswith("image/"):
         return jsonify(ok=False, error="Only image/* allowed"), 400
-    filename = secure_filename(file.filename)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    final_name = f"{ts}_{filename}"
-    save_path = os.path.join(UPLOAD_DIR, final_name)
 
-    # Compute hash
-    file_hash = compute_file_hash(file.stream)
+    try:
+        # Upload to Cloudinary
+        result = cloudinary.uploader.upload(file, folder="partypix")
 
-    # Check for duplicates
-    duplicate_found = False
-    for existing_file in os.listdir(UPLOAD_DIR):
-        existing_path = os.path.join(UPLOAD_DIR, existing_file)
-        if os.path.isfile(existing_path):
-            with open(existing_path, "rb") as ef:
-                existing_hash = hashlib.sha256(ef.read()).hexdigest()
-                if existing_hash == file_hash:
-                    duplicate_found = True
-                    break
+        # Secure URL to the image
+        url = result["secure_url"]
+        public_id = result["public_id"]
+
+        # Save guest name if available
+        guest_name = session.get("guest_name")
+        meta = load_photo_meta()
+        if guest_name:
+            meta[public_id] = guest_name
+            save_photo_meta(meta)
+
+        return jsonify(ok=True, url=url, public_id=public_id)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
     if duplicate_found:
         return jsonify(ok=False, error="Duplicate image detected. Upload canceled."), 409
 
