@@ -17,7 +17,6 @@ cloudinary.config(
     api_key = os.environ.get("CLOUDINARY_API_KEY"),
     api_secret = os.environ.get("CLOUDINARY_API_SECRET")
 )
-app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20 MB max
 app = Flask(__name__)
 app.secret_key = "supersecret"
 
