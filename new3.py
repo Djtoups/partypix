@@ -423,16 +423,17 @@ def gallery():
     if not session.get("guest_name"):
         return redirect(url_for("guest_login"))
 
-    files = os.listdir(UPLOAD_DIR)
-    files.sort(reverse=True)
+    meta = load_photo_meta()
 
     gallery_html = ""
-    for f in files:
-        url = url_for("serve_uploads", filename=f)
+    for public_id, guest in meta.items():
+        # Build Cloudinary URL for this photo
+        url = cloudinary.CloudinaryImage(public_id).build_url()
         gallery_html += f"""
         <div class="gallery-item">
           <img src="{url}" alt="Photo" class="gallery-img"/>
           <a href="{url}" download class="download-btn">Download</a>
+          <p style="color:#fff;">Guest: {guest}</p>
         </div>
         """
 
@@ -445,7 +446,7 @@ def gallery():
       <title>PartyPix - Gallery</title>
       <style>
         body {{
-          font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+          font-family: system-ui, sans-serif;
           margin:0;
           min-height:100vh;
           background: url('/static/istockphoto-853318464-612x612 (copy).png') no-repeat center center;
@@ -503,7 +504,6 @@ def gallery():
       <h1>Gallery</h1>
       <div class="top-btns">
         <a href="/guest_page">← Back</a>
-        <a href="/download_all">⬇ Download All</a>
       </div>
       <div class="gallery">
         {gallery_html if gallery_html else "<p style='color:#fff;'>No photos yet.</p>"}
@@ -511,6 +511,7 @@ def gallery():
     </body>
     </html>
     """)
+
 # ---------------- Download All ----------------
 @app.route("/download_all", methods=["GET"])
 def download_all():
